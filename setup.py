@@ -13,40 +13,46 @@
 # the License.
 
 import os
+import sys
 
 try:
     from setuptools import setup
 except:
     from distutils.core import setup
 
-try:
-    # Convert the Markdown Readme into raw text so that it looks good in PyPi.
-    # Simple workaround because PyPi does't support Markdown.
-    # https://pypi.python.org/pypi/luigi
-    import textwrap
 
-    long_description = ['NOTE: For the latest code and documentation, please go to https://github.com/spotify/luigi', '']
+def get_static_files(path):
+    return [os.path.join(dirpath.replace("luigi/", ""), ext) 
+            for (dirpath, dirnames, filenames) in os.walk(path)
+            for ext in ["*.html", "*.js", "*.css", "*.png"]]
 
-    for line in open('README.md'):
-        # Strip all images from the pypi description
-        if not line.startswith('!') and not line.startswith('```'):
-            for line in textwrap.wrap(line, 120, drop_whitespace=False):
-                long_description.append(line)
 
-    long_description = '\n'.join(long_description)
+luigi_package_data = sum(map(get_static_files, ["luigi/static", "luigi/templates"]), [])
 
-except Exception, e:
-    import traceback
-    traceback.print_exc()
-    long_description = ''
+readme_note = """\
+.. note::
 
-luigi_package_data = [os.path.join(dirpath.replace("luigi/", ""), ext)
-                      for (dirpath, dirnames, filenames) in os.walk("luigi/static")
-                      for ext in ["*.html", "*.js", "*.css", "*.png"]]
+   For the latest source, discussion, etc, please visit the
+   `GitHub repository <https://github.com/spotify/luigi>`_\n\n
+"""
+
+with open('README.rst') as fobj:
+    long_description = readme_note + fobj.read()
+
+install_requires = [
+    'cached_property',
+    'pyparsing',
+    'tornado',
+    'python-daemon',
+]
+
+if os.environ.get('READTHEDOCS', None) == 'True':
+    install_requires.append('sqlalchemy')
+    # So that we can build documentation for luigi.db_task_history and luigi.contrib.sqla
 
 setup(
     name='luigi',
-    version='1.0.12',
+    version='1.2.2',
     description='Workflow mgmgt + task scheduling + dependency resolution',
     long_description=long_description,
     author='Erik Bernhardsson',
@@ -56,11 +62,31 @@ setup(
     packages=[
         'luigi',
         'luigi.contrib',
+        'luigi.contrib.hdfs',
+        'luigi.tools'
     ],
     package_data={
         'luigi': luigi_package_data
     },
-    scripts=[
-        'bin/luigid'
-    ]
+    entry_points={
+        'console_scripts': [
+            'luigi = luigi.cmdline:luigi_run',
+            'luigid = luigi.cmdline:luigid',
+            'luigi-grep = luigi.tools.luigi_grep:main',
+            'luigi-deps = luigi.tools.deps:main',
+        ]
+    },
+    install_requires=install_requires,
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Environment :: Console',
+        'Environment :: Web Environment',
+        'Intended Audience :: Developers',
+        'Intended Audience :: System Administrators',
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Topic :: System :: Monitoring',
+    ],
 )
